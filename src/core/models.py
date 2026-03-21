@@ -11,7 +11,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 # =============================================================================
@@ -27,7 +27,7 @@ class VideoMetadata(BaseModel):
     title: str
     description: str
     published_at: datetime
-    duration: int  # seconds
+    duration: int = Field(ge=0)  # seconds
     thumbnail_url: str
     url: str
 
@@ -70,7 +70,7 @@ class ContentAnalysis(BaseModel):
     video_id: str
     main_points: list[str] = Field(min_length=1, max_length=5)
     summary: str = Field(min_length=10)
-    topics: list[str] = default_factory(list)
+    topics: list[str] = Field(default_factory=list)
     sentiment: str | None = None
 
 
@@ -244,7 +244,7 @@ class ProviderConfig(BaseModel):
 
     type: str  # "llm", "image", "tts"
     name: str  # "openai", "anthropic", etc.
-    config: dict[str, Any] = default_factory(dict)
+    config: dict[str, Any] = Field(default_factory=dict)
 
 
 class SystemConfig(BaseModel):

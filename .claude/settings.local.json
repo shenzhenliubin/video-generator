@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -r --host ~/.claude/skills/gstack/)",
+      "Bash(find ~/.gstack/projects/video-generator/ -type f -name *.md)",
+      "Bash(find /Users/binliu/claudcode-project/video-generator/docs/ -type f -name *.md)",
+      "Skill(ship)",
+      "Bash(python3:*)",
+      "Bash(source venv/bin/activate)",
+      "Bash(pip install:*)",
+      "Bash(pip list:*)",
+      "Bash(python -m src.main --help)",
+      "Bash(pytest -v)",
+      "Bash(python -m src.main config)",
+      "Bash(git add:*)"
+    ]
+  }
+}

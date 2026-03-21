@@ -10,9 +10,9 @@ from pydantic import ValidationError
 
 from src.core.models import (
     ContentAnalysis,
-    ScriptSegment,
     StyleTemplate,
     TemplateCategory,
+    TranscriptSegment,
     VideoMetadata,
 )
 
