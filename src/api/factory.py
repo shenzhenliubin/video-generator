@@ -175,6 +175,12 @@ def _register_builtin_providers() -> None:
     except ImportError:
         pass
 
+    try:
+        from src.api.image.siliconflow import SiliconFlowImage
+        ProviderFactory.register_image("siliconflow", SiliconFlowImage)
+    except ImportError:
+        pass
+
     # TTS providers
     try:
         from src.api.tts.elevenlabs import ElevenLabsTTS
@@ -185,6 +191,12 @@ def _register_builtin_providers() -> None:
     try:
         from src.api.tts.local import LocalTTS
         ProviderFactory.register_tts("local", LocalTTS)
+    except ImportError:
+        pass
+
+    try:
+        from src.api.tts.siliconflow import SiliconFlowTTS
+        ProviderFactory.register_tts("siliconflow", SiliconFlowTTS)
     except ImportError:
         pass
 

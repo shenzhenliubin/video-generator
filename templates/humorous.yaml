@@ -1,0 +1,24 @@
+id: humorous
+name: Humorous
+category: humorous
+description: Light, funny, entertaining content
+
+# Provider 配置
+llm_provider: siliconflow
+llm_model: deepseek-ai/DeepSeek-V3
+image_provider: siliconflow
+image_model: black-forest-labs/FLUX.1-schnell
+tts_provider: siliconflow
+tts_model: FunAudioLLM/CosyVoice2-0.5B
+
+# 样式参数
+scene_duration: 4
+image_style_prompt: colorful, animated style, fun and playful, vibrant
+voice_id: diana  # 欢快女声
+
+# LLM 参数
+system_prompt: |
+  You are a humorous writer. Create entertaining, lighthearted content.
+  Use jokes and witty remarks to engage the audience.
+temperature: 0.9
+max_tokens: 1000

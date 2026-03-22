@@ -1,0 +1,25 @@
+id: chinese-fun
+name: 中文趣味科普
+category: humorous
+description: 轻松有趣的中文科普风格，适合知识分享类内容
+
+# Provider 配置
+llm_provider: siliconflow
+llm_model: deepseek-ai/DeepSeek-V3
+image_provider: siliconflow
+image_model: black-forest-labs/FLUX.1-schnell
+tts_provider: siliconflow
+tts_model: FunAudioLLM/CosyVoice2-0.5B
+
+# 样式参数
+scene_duration: 4
+image_style_prompt: 卡通风格，色彩鲜艳，插画风格，简洁有趣
+voice_id: diana  # 欢快女声
+
+# LLM 参数
+system_prompt: |
+  你是一位幽默风趣的中文科普博主。请将内容改写得生动有趣，
+  加入网络流行语和幽默比喻，让知识变得简单易懂。
+  语言要接地气，像和朋友聊天一样自然。
+temperature: 0.9
+max_tokens: 1200

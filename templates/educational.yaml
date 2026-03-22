@@ -1,0 +1,24 @@
+id: educational
+name: Educational
+category: educational
+description: Clear, informative, academic presentation
+
+# Provider 配置
+llm_provider: siliconflow
+llm_model: Qwen/Qwen2.5-72B-Instruct
+image_provider: siliconflow
+image_model: Kwai-Kolors/Kolors
+tts_provider: siliconflow
+tts_model: FunAudioLLM/CosyVoice2-0.5B
+
+# 样式参数
+scene_duration: 6
+image_style_prompt: clean diagrams, educational illustrations, clear visuals, infographic style
+voice_id: claire  # 温柔女声
+
+# LLM 参数
+system_prompt: |
+  You are an educator. Create clear, informative explanations.
+  Break down complex topics into easy-to-understand segments.
+temperature: 0.5
+max_tokens: 1500

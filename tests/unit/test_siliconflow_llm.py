@@ -25,10 +25,11 @@ class TestSiliconFlowLLMInit:
         provider = SiliconFlowLLM(api_key="test-key")
 
         assert provider.model == "Qwen/Qwen2.5-72B-Instruct"
-        mock_openai.assert_called_once_with(
-            api_key="test-key",
-            base_url="https://api.siliconflow.cn/v1",
-        )
+        mock_openai.assert_called_once()
+        call_kwargs = mock_openai.call_args.kwargs
+        assert call_kwargs["api_key"] == "test-key"
+        assert call_kwargs["base_url"] == "https://api.siliconflow.cn/v1"
+        assert "http_client" in call_kwargs
 
     @patch("src.api.llm.siliconflow.AsyncOpenAI")
     def test_init_with_custom_values(self, mock_openai: Mock) -> None:
@@ -40,10 +41,11 @@ class TestSiliconFlowLLMInit:
         )
 
         assert provider.model == "deepseek-v3"
-        mock_openai.assert_called_once_with(
-            api_key="test-key",
-            base_url="https://custom.api.com/v1",
-        )
+        mock_openai.assert_called_once()
+        call_kwargs = mock_openai.call_args.kwargs
+        assert call_kwargs["api_key"] == "test-key"
+        assert call_kwargs["base_url"] == "https://custom.api.com/v1"
+        assert "http_client" in call_kwargs
 
     @patch("src.api.llm.siliconflow.AsyncOpenAI")
     def test_is_llm_provider(self, mock_openai: Mock) -> None:

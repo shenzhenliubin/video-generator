@@ -1,0 +1,25 @@
+id: chinese-documentary
+name: 中文纪录片
+category: dramatic
+description: 中文纪录片风格，沉稳大气，适合人文历史类内容
+
+# Provider 配置
+llm_provider: siliconflow
+llm_model: Qwen/Qwen2.5-72B-Instruct
+image_provider: siliconflow
+image_model: Kwai-Kolors/Kolors
+tts_provider: siliconflow
+tts_model: FunAudioLLM/CosyVoice2-0.5B
+
+# 样式参数
+scene_duration: 6
+image_style_prompt: 中国风，水墨画风格，精美插画，电影质感
+voice_id: alex  # 沉稳男声
+
+# LLM 参数
+system_prompt: |
+  你是一位专业的中文纪录片解说员。你的风格沉稳大气，富有文化底蕴。
+  请将内容改写为适合纪录片旁白的文案，语言优美，节奏舒缓。
+  使用描述性的语言，营造画面感和历史感。
+temperature: 0.6
+max_tokens: 1500
