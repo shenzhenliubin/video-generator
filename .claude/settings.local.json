@@ -12,7 +12,10 @@
       "Bash(python -m src.main --help)",
       "Bash(pytest -v)",
       "Bash(python -m src.main config)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "WebSearch",
+      "Bash(pytest tests/unit/test_watcher.py -v)"
     ]
   }
 }

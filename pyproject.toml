@@ -12,6 +12,7 @@ dependencies = [
     # YouTube & Subtitles
     "pytube>=15.0",
     "youtube-transcript-api>=0.6",
+    "google-api-python-client>=2.0",
 
     # AI/ML
     "openai>=1.0",
