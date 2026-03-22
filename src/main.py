@@ -12,6 +12,7 @@ Commands:
 """
 
 import asyncio
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +22,10 @@ from rich.table import Table
 
 from src.config.settings import get_settings
 from src.core.models import TemplateCategory
+from src.core.pipeline import PipelineError, process_video
+from src.templates.manager import TemplateManager
+
+logger = logging.getLogger(__name__)
 
 console = Console()
 
@@ -84,8 +89,9 @@ def watch(channel_id: str, interval: int, once: bool) -> None:
     default="dramatic",
     help="Style template to use",
 )
-@click.option("--output", help="Output directory (default: ./output)")
-def process(video_id: str, style: str, output: str | None) -> None:
+@click.option("--output", help="Output directory (default: uses settings.output_dir)")
+@click.option("--resume", is_flag=True, help="Resume from last checkpoint if available")
+def process(video_id: str, style: str, output: str | None, resume: bool) -> None:
     """
     Process a single YouTube video.
 
@@ -98,11 +104,48 @@ def process(video_id: str, style: str, output: str | None) -> None:
     console.print(f"[cyan]Processing video:[/cyan] {video_id}")
     console.print(f"[cyan]Style:[/cyan] {style}")
     console.print(f"[cyan]Output:[/cyan] {output_dir}")
+    if resume:
+        console.print(f"[yellow]Resume mode:[/yellow] enabled")
     console.print()
 
-    # TODO: Implement pipeline execution
-    console.print("[yellow]Pipeline not yet implemented[/yellow]")
-    console.print("[dim]This will run the 8-stage processing pipeline[/dim]")
+    # Load template
+    try:
+        template_manager = TemplateManager()
+        # Use style as template ID (they match in current setup)
+        template = template_manager.load(style)
+        console.print(f"[green]✓ Loaded template:[/green] {template.name}")
+        console.print(f"[dim]  {template.description}[/dim]")
+        console.print()
+    except KeyError as e:
+        console.print(f"[red]Error:[/red] Template '{style}' not found.")
+        console.print(f"[dim]Available templates: {', '.join([t.id for t in template_manager.list_all()])}[/dim]")
+        raise click.ClickException("Template not found")
+
+    # Run pipeline
+    try:
+        result = asyncio.run(process_video(
+            video_id=video_id,
+            template=template,
+            resume=resume,
+        ))
+
+        console.print()
+        console.print("[green]✓ Processing complete![/green]")
+        console.print(f"[cyan]Video output:[/cyan] {result.video_path}")
+        console.print(f"[cyan]Duration:[/cyan] {result.duration} seconds")
+        console.print(f"[cyan]Resolution:[/cyan] {result.resolution}")
+        console.print(f"[cyan]Scenes:[/cyan] {result.scenes_count}")
+
+    except PipelineError as e:
+        console.print()
+        console.print(f"[red]Pipeline error:[/red] {e}")
+        logger.error(f"Pipeline failed for video {video_id}: {e}")
+        raise click.ClickException("Pipeline processing failed")
+    except Exception as e:
+        console.print()
+        console.print(f"[red]Unexpected error:[/red] {e}")
+        logger.exception(f"Unexpected error processing video {video_id}")
+        raise click.ClickException("Processing failed")
 
 
 # ============================================================================
@@ -123,35 +166,22 @@ def styles_list() -> None:
     table.add_column("Name", style="green")
     table.add_column("Category", style="yellow")
     table.add_column("Description")
+    table.add_column("Providers", style="dim")
 
-    # TODO: Load from templates/presets.py
-    presets = [
-        {
-            "id": "dramatic",
-            "name": "Dramatic",
-            "category": "dramatic",
-            "description": "High-impact, cinematic storytelling",
-        },
-        {
-            "id": "humorous",
-            "name": "Humorous",
-            "category": "humorous",
-            "description": "Light, funny, entertaining",
-        },
-        {
-            "id": "educational",
-            "name": "Educational",
-            "category": "educational",
-            "description": "Clear, informative, academic",
-        },
-    ]
+    template_manager = TemplateManager()
+    templates = template_manager.list_all()
 
-    for preset in presets:
+    if not templates:
+        console.print("[yellow]No templates found[/yellow]")
+        return
+
+    for template in templates:
         table.add_row(
-            preset["id"],
-            preset["name"],
-            preset["category"],
-            preset["description"],
+            template.id,
+            template.name,
+            template.category.value,
+            template.description,
+            f"LLM: {template.llm_provider}, Image: {template.image_provider}, TTS: {template.tts_provider}",
         )
 
     console.print(table)
@@ -161,8 +191,47 @@ def styles_list() -> None:
 @click.argument("template_id")
 def styles_show(template_id: str) -> None:
     """Show details of a style template."""
-    console.print(f"[cyan]Template:[/cyan] {template_id}")
-    # TODO: Load and display template details
+    template_manager = TemplateManager()
+
+    try:
+        template = template_manager.load(template_id)
+    except KeyError:
+        console.print(f"[red]Error:[/red] Template '{template_id}' not found.")
+        console.print(f"[dim]Available templates: {', '.join([t.id for t in template_manager.list_all()])}[/dim]")
+        raise click.ClickException("Template not found")
+
+    # Display template details
+    console.print()
+    console.print(f"[cyan]Template ID:[/cyan] {template.id}")
+    console.print(f"[cyan]Name:[/cyan] {template.name}")
+    console.print(f"[cyan]Category:[/cyan] {template.category.value}")
+    console.print(f"[cyan]Description:[/cyan] {template.description}")
+    console.print()
+
+    # Providers
+    console.print("[cyan]Providers:[/cyan]")
+    console.print(f"  LLM: {template.llm_provider}")
+    console.print(f"  Image: {template.image_provider}")
+    console.print(f"  TTS: {template.tts_provider}")
+    console.print()
+
+    # Parameters
+    console.print("[cyan]Parameters:[/cyan]")
+    console.print(f"  Scene Duration: {template.scene_duration} seconds")
+    console.print(f"  Temperature: {template.temperature}")
+    console.print(f"  Max Tokens: {template.max_tokens}")
+    console.print()
+
+    # Optional fields
+    if template.image_style_prompt:
+        console.print(f"[cyan]Image Style:[/cyan] {template.image_style_prompt}")
+    if template.voice_id:
+        console.print(f"[cyan]Voice ID:[/cyan] {template.voice_id}")
+    if template.background_music:
+        console.print(f"[cyan]Background Music:[/cyan] {template.background_music}")
+    if template.system_prompt:
+        console.print(f"[cyan]System Prompt:[/cyan]")
+        console.print(f"[dim]{template.system_prompt}[/dim]")
 
 
 @styles.command(name="create")
