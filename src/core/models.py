@@ -64,6 +64,18 @@ class Transcript(BaseModel):
 # Content Analysis Models
 # =============================================================================
 
+class ParsedContent(BaseModel):
+    """Result of parsing and cleaning subtitle content."""
+
+    video_id: str
+    original_text: str  # Raw text from transcript
+    clean_text: str  # Cleaned text with artifacts removed
+    segments: list[dict[str, Any]]  # Parsed segments with cleaned text
+    sections: list[dict[str, Any]]  # Logical sections based on timing gaps
+    language: str = "en"
+    word_count: int = Field(ge=0)
+
+
 class ContentAnalysis(BaseModel):
     """Result of LLM content analysis."""
 

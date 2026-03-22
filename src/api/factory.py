@@ -156,6 +156,12 @@ def _register_builtin_providers() -> None:
     except ImportError:
         pass
 
+    try:
+        from src.api.llm.siliconflow import SiliconFlowLLM
+        ProviderFactory.register_llm("siliconflow", SiliconFlowLLM)
+    except ImportError:
+        pass
+
     # Image providers
     try:
         from src.api.image.openai import OpenAIImage

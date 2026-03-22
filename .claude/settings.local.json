@@ -17,7 +17,8 @@
       "WebSearch",
       "Bash(pytest tests/unit/test_watcher.py -v)",
       "Bash(gh repo:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(git push:*)"
     ]
   }
 }
