@@ -8,11 +8,42 @@ API Documentation: https://docs.siliconflow.cn/cn/userguide/quickstart
 Base URL: https://api.siliconflow.cn/v1
 """
 
+import os
 from typing import Any
 
+import httpx
 from openai import AsyncOpenAI
 
 from src.api.base import LLMProvider
+
+
+def _create_httpx_client() -> httpx.AsyncClient:
+    """
+    Create an httpx client with proxy disabled.
+
+    This avoids SOCKS proxy errors when proxy is configured in environment.
+    """
+    # Temporarily clear proxy environment variables
+    proxy_vars = [
+        "http_proxy", "https_proxy", "HTTP_PROXY", "HTTPS_PROXY",
+        "all_proxy", "ALL_PROXY", "socks_proxy", "socks5_proxy"
+    ]
+    original_env = {}
+    for var in proxy_vars:
+        if var in os.environ:
+            original_env[var] = os.environ[var]
+            del os.environ[var]
+
+    try:
+        # Create client without proxy
+        return httpx.AsyncClient(
+            timeout=httpx.Timeout(60.0, connect=10.0),
+            limits=httpx.Limits(max_keepalive_connections=5, max_connections=10),
+        )
+    finally:
+        # Restore original environment
+        for var, value in original_env.items():
+            os.environ[var] = value
 
 
 class SiliconFlowLLM(LLMProvider):
@@ -44,6 +75,7 @@ class SiliconFlowLLM(LLMProvider):
         api_key: str,
         base_url: str | None = None,
         model: str | None = None,
+        http_client: Any | None = None,
         **kwargs: Any,
     ) -> None:
         """
@@ -53,16 +85,22 @@ class SiliconFlowLLM(LLMProvider):
             api_key: SiliconFlow API key from https://cloud.siliconflow.cn
             base_url: API base URL (default: https://api.siliconflow.cn/v1)
             model: Model identifier (default: Qwen/Qwen2.5-72B-Instruct)
+            http_client: Custom httpx client (optional)
             **kwargs: Additional OpenAI client parameters
         """
         self._api_key = api_key
         self._base_url = base_url or self.DEFAULT_BASE_URL
         self._model = model or self.DEFAULT_MODEL
 
+        # Create httpx client without proxy if not provided
+        if http_client is None:
+            http_client = _create_httpx_client()
+
         # Initialize AsyncOpenAI client with SiliconFlow endpoint
         self._client = AsyncOpenAI(
             api_key=self._api_key,
             base_url=self._base_url,
+            http_client=http_client,
             **kwargs,
         )
 

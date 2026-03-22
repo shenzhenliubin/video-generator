@@ -18,7 +18,8 @@
       "Bash(pytest tests/unit/test_watcher.py -v)",
       "Bash(gh repo:*)",
       "Bash(python:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY ALL_PROXY no_proxy NO_PROXY)"
     ]
   }
 }
