@@ -176,6 +176,30 @@ See `.env.example` for full list.
 - **Product Design:** `docs/design/product-design.md` - Problem statement, approach, success criteria
 - **Test Plan:** `docs/design/test-plan.md` - Test strategy and edge cases
 - **CEO Plan:** `docs/design/ceo-plan.md` - Strategic vision and roadmap
+- **Design System:** `DESIGN.md` - UI/UX design system, colors, typography, components
+
+## Design System
+
+**Always read DESIGN.md before making any visual or UI decisions.**
+
+All font choices, colors, spacing, and aesthetic direction are defined in the design system.
+
+### Frontend Stack (Phase 2)
+- **Framework:** React 18 + Next.js 14 (App Router)
+- **UI Library:** shadcn/ui (copy-paste components, full customization)
+- **Styling:** Tailwind CSS v4+
+- **Icons:** Lucide React
+- **State:** Zustand (client) + React Query (server)
+- **Forms:** React Hook Form + Zod
+- **Language:** TypeScript
+
+### Key Design Principles
+1. **Modern SaaS Professional** — Clean, Linear/Vercel-inspired aesthetics
+2. **Indigo Primary** — `#6366f1` (avoid purple gradients common in AI tools)
+3. **Comfortable Density** — Generous spacing for long work sessions
+4. **Dark Mode First** — Video creators prefer dark interfaces
+
+Do not deviate from DESIGN.md without explicit user approval.
 
 ## Strategic Vision
 
