@@ -7,13 +7,12 @@ Features:
 - MoviePy-based video composition
 - Synchronized image/audio scene alignment
 - Automatic video output with proper encoding
-- Batch video rendering for multiple projects
-- Support for multiple output formats
+- Subtitle support with SceneData structure
 """
 
-from moviepy import CompositeVideoClip, VideoFileClip, AudioFileClip
+from moviepy import CompositeVideoClip, VideoFileClip, AudioFileClip, TextClip, ImageClip, concatenate_videoclips, concatenate_audioclips
 
-from src.core.models import GeneratedAudio, GeneratedImage, VideoOutput
+from src.core.models import GeneratedAudio, GeneratedImage, VideoOutput, SceneData
 from src.storage.file_store import FileStore
 
 
@@ -43,6 +42,7 @@ class VideoRenderer:
         storyboard_id: str,
         images: list[GeneratedImage],
         audio_segments: list[GeneratedAudio],
+        storyboard=None,
         resolution: str = "1920x1080",
         output_format: str = "mp4",
         fps: int = 24,
@@ -83,59 +83,106 @@ class VideoRenderer:
                     f"Image/audio count mismatch: {len(sorted_images)} images vs {len(sorted_audio)} audio"
                 )
 
-            # Extract video_id from storyboard_id
-            # Format: "original_video_id_template_id" -> "original_video_id"
-            video_id = storyboard_id.split("_")[0] if "_" in storyboard_id else storyboard_id
+            # Create SceneData objects - complete data structure for each scene
+            scene_data_list = []
+            current_time = 0.0
+
+            for image_data in sorted_images:
+                # Find corresponding audio
+                audio_data = None
+                for aud in sorted_audio:
+                    if aud.scene_number == image_data.scene_number:
+                        audio_data = aud
+                        break
+
+                if audio_data is None:
+                    raise RenderError(f"No audio found for scene {image_data.scene_number}")
+
+                # Find corresponding scene from storyboard
+                narration = ""
+                visual_description = ""
+                camera_movement = "static"
+                mood = "neutral"
+
+                if storyboard and hasattr(storyboard, 'scenes'):
+                    for scene in storyboard.scenes:
+                        if scene.scene_number == image_data.scene_number:
+                            narration = scene.narration
+                            visual_description = scene.visual_description
+                            camera_movement = scene.camera_movement
+                            mood = scene.mood
+                            break
+
+                scene_data = SceneData(
+                    scene_number=image_data.scene_number,
+                    narration=narration,
+                    visual_description=visual_description,
+                    duration=audio_data.duration,
+                    camera_movement=camera_movement,
+                    mood=mood,
+                    start_time=current_time,
+                    image_path=image_data.image_path,
+                    audio_path=audio_data.audio_path,
+                    image_prompt=image_data.prompt_used,
+                )
+                scene_data_list.append(scene_data)
+                current_time += audio_data.duration
+
+            # Print scene data summary
+            print(f"  Scene data assembled: {len(scene_data_list)} scenes")
+            for sd in scene_data_list:
+                print(f"    Scene {sd.scene_number}: {sd.duration:.1f}s, start={sd.start_time:.1f}s")
+                print(f"      Narration: {sd.narration[:60]}..." if len(sd.narration) > 60 else f"      Narration: {sd.narration}")
 
             # Create video clips from images
             video_clips = []
             total_duration = 0
 
-            for image_data in sorted_images:
-                # Load image and create video clip from it
-                try:
-                    # Create a video clip from the image (display for scene duration)
-                    scene_duration = await self._get_scene_duration(
-                        sorted_images,
-                        sorted_audio,
-                        image_data.scene_number,
-                    )
-
-                    # Create clip from image - make it last for the scene duration
-                    # We use a placeholder approach since MoviePy needs video files
-                    # For now, we'll create a simple approach: use the image as a static frame
-                    clip = await self._create_image_clip(
-                        image_data.image_path,
-                        scene_duration,
-                        fps,
-                        width,
-                        height,
-                    )
-                    video_clips.append(clip)
-                    total_duration += scene_duration
-
-                except Exception as e:
-                    raise RenderError(
-                        f"Failed to create clip for scene {image_data.scene_number}: {e}"
-                    ) from e
+            for scene_data in scene_data_list:
+                # Create clip from image - make it last for the scene duration
+                clip = await self._create_image_clip(
+                    scene_data.image_path,
+                    scene_data.duration,
+                    fps,
+                    width,
+                    height,
+                )
+                video_clips.append(clip)
+                total_duration += scene_data.duration
 
             # Concatenate all video clips
             if len(video_clips) == 1:
                 final_video = video_clips[0]
             else:
-                final_video = await self._concatenate_clips(video_clips)
+                final_video = concatenate_videoclips(video_clips, method="compose")
 
             # Add audio to the video
             final_video_with_audio = await self._add_audio_to_video(
                 final_video,
-                sorted_audio,
-                video_id,
+                scene_data_list,
             )
 
-            # Save the final video
-            video_path = self.file_store.save_video(
-                video_id,
+            # Add subtitles using SceneData
+            final_video_with_subtitles = await self._add_subtitles_to_video(
                 final_video_with_audio,
+                scene_data_list,
+                width,
+                height,
+            )
+
+            # Save the final video using MoviePy
+            videos_dir = self.file_store.base_dir / "videos"
+            videos_dir.mkdir(parents=True, exist_ok=True)
+            video_path = str(videos_dir / f"{storyboard_id}.mp4")
+
+            # Write video file
+            final_video_with_subtitles.write_videofile(
+                video_path,
+                fps=fps,
+                codec='libx264',
+                audio_codec='aac',
+                temp_audiofile='temp-audio.m4a',
+                remove_temp=True
             )
 
             return VideoOutput(
@@ -173,116 +220,117 @@ class VideoRenderer:
         Returns:
             VideoFileClip with the image as video
         """
-        # Load the image
-        from moviepy import ImageSequenceClip
-        from PIL import Image
-
-        # Create a clip by repeating the image for the duration
-        img = Image.open(image_path)
-        img = img.resize((width, height))
-
-        # Create a temporary sequence clip
-        import tempfile
-        import os
-
-        temp_dir = tempfile.mkdtemp()
-        temp_pattern = os.path.join(temp_dir, "frame_%04d.png")
-
-        # Save the image once (will be used by MoviePy)
-        frame_path = temp_pattern % 0
-        img.save(frame_path)
-
-        # Create a clip with fps frames repeating the image
-        clip = ImageSequenceClip(
-            [frame_path] * int(duration * fps),
-            fps=fps,
-        )
-
-        # Note: In a real implementation, we might want to clean up temp files
-        # For now, MoviePy will handle them
+        # Create an ImageClip with the specified duration
+        # Use resized() method and with_fps() for MoviePy 2.x
+        clip = ImageClip(image_path, duration=duration).resized((width, height)).with_fps(fps)
 
         return clip
-
-    async def _get_scene_duration(
-        self,
-        images: list[GeneratedImage],
-        audio_segments: list[GeneratedAudio],
-        scene_number: int,
-    ) -> float:
-        """
-        Get the duration for a scene based on audio segment.
-
-        Args:
-            images: List of generated images
-            audio_segments: List of generated audio
-            scene_number: Scene number
-
-        Returns:
-            Duration in seconds
-        """
-        # Find the corresponding audio segment
-        for audio in audio_segments:
-            if audio.scene_number == scene_number:
-                return audio.duration
-
-        # Fallback: estimate from image (shouldn't happen in normal flow)
-        return 5.0
-
-    async def _concatenate_clips(self, clips: list[VideoFileClip]) -> VideoFileClip:
-        """
-        Concatenate video clips in sequence.
-
-        Args:
-            clips: List of VideoFileClip to concatenate
-
-        Returns:
-            Concatenated VideoFileClip
-        """
-        if len(clips) == 1:
-            return clips[0]
-
-        # Use concatenate method
-        from moviepy import concatenate_videoclips
-
-        return concatenate_videoclips(clips, method="compose")
 
     async def _add_audio_to_video(
         self,
         video_clip: VideoFileClip,
-        audio_segments: list[GeneratedAudio],
-        video_id: str,
+        scene_data_list: list[SceneData],
     ) -> VideoFileClip:
         """
-        Add audio tracks to video clip.
+        Add audio tracks to video clip using SceneData.
 
         Args:
             video_clip: Video clip without audio
-            audio_segments: List of audio segments with duration info
-            video_id: Video ID for file naming
+            scene_data_list: List of SceneData with audio paths
 
         Returns:
             VideoFileClip with audio added
         """
-        # Load and concatenate all audio segments
+        # Load audio clips in order
         audio_clips = []
-        current_time = 0.0
 
-        for audio_data in sorted(audio_segments, key=lambda a: a.scene_number):
-            audio_clip = AudioFileClip(audio_data.audio_path)
-            # Set start time for this audio segment
-            audio_clip = audio_clip.set_start(current_time)
+        for scene_data in scene_data_list:
+            audio_clip = AudioFileClip(scene_data.audio_path)
             audio_clips.append(audio_clip)
-            current_time += audio_data.duration
 
         if audio_clips:
-            # Concatenate audio clips
-            from moviepy import concatenate_audioclips
-
+            # Concatenate audio clips - they'll be played sequentially
             final_audio = concatenate_audioclips(audio_clips)
-            # Set audio for the video
-            video_clip = video_clip.set_audio(final_audio)
+
+            # For MoviePy 2.x: use with_audio directly
+            video_clip = video_clip.with_audio(final_audio)
 
         return video_clip
+
+    async def _add_subtitles_to_video(
+        self,
+        video_clip: VideoFileClip,
+        scene_data_list: list[SceneData],
+        width: int,
+        height: int,
+    ) -> VideoFileClip:
+        """
+        Add subtitles to video clip using SceneData.
+
+        For MoviePy 2.x, we create all TextClips first, then composite them.
+
+        Args:
+            video_clip: Video clip without subtitles
+            scene_data_list: List of SceneData with narration and timing
+            width: Video width
+            height: Video height
+
+        Returns:
+            VideoFileClip with subtitles added
+        """
+        subtitle_clips = []
+
+        for scene_data in scene_data_list:
+            try:
+                # Create a TextClip with font that supports Chinese
+                # Don't set size - let it auto-size based on text content
+                txt_clip = TextClip(
+                    text=scene_data.narration,
+                    font='/System/Library/Fonts/STHeiti Medium.ttc',
+                    font_size=48,
+                    color='white',
+                    stroke_color='black',
+                    stroke_width=2,
+                    method='label',
+                    text_align='center',
+                )
+
+                # Set timing - when the subtitle appears and for how long
+                txt_clip = txt_clip.with_start(scene_data.start_time).with_duration(scene_data.duration)
+
+                # Set position - bottom center of video
+                txt_clip = txt_clip.with_position(('center', height * 0.85))
+
+                subtitle_clips.append(txt_clip)
+                print(f"  Created subtitle for scene {scene_data.scene_number}: {scene_data.narration[:30]}...")
+            except Exception as e:
+                print(f"  Error creating subtitle for scene {scene_data.scene_number}: {e}")
+                import traceback
+                traceback.print_exc()
+                continue
+
+        if subtitle_clips:
+            print(f"  Compositing {len(subtitle_clips)} subtitle clips with video...")
+
+            # Create composite with video and all subtitles
+            # The video clip is the base, subtitles are layered on top
+            all_clips = [video_clip] + subtitle_clips
+
+            # CompositeVideoClip in MoviePy 2.x
+            final_video = CompositeVideoClip(all_clips, size=video_clip.size)
+
+            # Preserve audio from the original video clip
+            if video_clip.audio is not None:
+                final_video = final_video.with_audio(video_clip.audio)
+                print(f"  Audio preserved in composite video")
+            else:
+                print(f"  WARNING: No audio found in original video clip")
+
+            print(f"  ✓ Added {len(subtitle_clips)} subtitle clips")
+            return final_video
+        else:
+            print(f"  WARNING: No subtitle clips created")
+            return video_clip
 
 
 class RenderError(Exception):
