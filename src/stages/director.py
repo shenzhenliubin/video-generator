@@ -27,23 +27,23 @@ class VideoDirector:
     """
 
     # System prompt for storyboard creation
-    SYSTEM_PROMPT = """You are a video director and storyboard artist. Your task is to break down a script into individual scenes with narration and visual descriptions.
+    SYSTEM_PROMPT = """你是一位视频导演和分镜艺术家。你的任务是将剧本分解为独立的场景，每个场景都有旁白和视觉描述。
 
-For each scene, provide:
-1. **scene_number**: Sequential number starting from 1
-2. **narration**: The voiceover text for this scene (portion of the script)
-3. **visual_description**: A detailed visual description of what should be shown on screen
-4. **duration**: How long this scene should last in seconds (typically 3-10)
-5. **camera_movement**: Camera movement (e.g., "static", "panning", "zoom in", "tracking shot")
-6. **mood**: The emotional tone of the scene (e.g., "neutral", "dramatic", "peaceful", "tense")
+对于每个场景，请提供：
+1. **scene_number**: 从1开始的序号
+2. **narration**: 该场景的旁白文本（来自剧本）
+3. **visual_description**: 屏幕上应该显示的详细视觉描述
+4. **duration**: 该场景应该持续多长时间（通常3-10秒）
+5. **camera_movement**: 镜头运动（例如："static"、"panning"、"zoom in"、"tracking shot"）
+6. **mood**: 场景的情感基调（例如："neutral"、"dramatic"、"peaceful"、"tense"）
 
-Respond ONLY in valid JSON format:
+请仅以有效的JSON格式回复：
 {{
   "scenes": [
     {{
       "scene_number": 1,
-      "narration": "The narration text for this scene...",
-      "visual_description": "Visual description of what appears on screen...",
+      "narration": "该场景的旁白文本...",
+      "visual_description": "屏幕上出现的视觉描述...",
       "duration": 5,
       "camera_movement": "static",
       "mood": "neutral"
@@ -52,14 +52,16 @@ Respond ONLY in valid JSON format:
   "total_duration": 45
 }}
 
-Guidelines:
-- Each scene should be 3-10 seconds long
-- Break the script into 5-10 scenes total
-- Distribute the script across scenes as narration
-- Visual descriptions should be detailed enough for image generation
-- Vary camera movements for visual interest
-- Match mood to the content of each scene
-- Total video should be 30-90 seconds"""
+指导原则：
+- 每个场景应为3-10秒长
+- 总共将剧本分解为5-10个场景
+- 将剧本作为旁白分配到各个场景
+- 视觉描述应足够详细，以便生成图像
+- 变换镜头运动以增加视觉趣味性
+- 匹配每个场景内容的情感基调
+- 总视频时长应为30-90秒
+
+重要：请用中文输出所有旁白和视觉描述。"""
 
     def __init__(self, provider: LLMProvider | None = None):
         """
@@ -70,7 +72,8 @@ Guidelines:
         """
         if provider is None:
             settings = get_settings()
-            self.provider = ProviderFactory.create_llm(settings.default_llm_provider)
+            config = settings.get_llm_config(settings.default_llm_provider)
+            self.provider = ProviderFactory.create_llm(settings.default_llm_provider, **config)
         else:
             self.provider = provider
 
@@ -102,7 +105,7 @@ Guidelines:
             # Call LLM
             response = await self.provider.generate_text(
                 prompt=full_prompt,
-                max_tokens=1500,
+                max_tokens=3000,  # Increased for longer storyboards
                 temperature=0.7,  # Higher temperature for creative variety
             )
 
@@ -186,6 +189,7 @@ Create the storyboard JSON as specified in the system prompt."""
             DirectorError: If response cannot be parsed as JSON
         """
         import json
+        import re
 
         # Try to extract JSON from response
         response = response.strip()
@@ -201,17 +205,48 @@ Create the storyboard JSON as specified in the system prompt."""
 
         response = response.strip()
 
+        # Try direct parsing first
         try:
             return json.loads(response)
-        except json.JSONDecodeError:
-            # Try to find JSON object
-            start = response.find("{")
-            end = response.rfind("}") + 1
-            if start >= 0 and end > start:
-                json_str = response[start:end]
-                return json.loads(json_str)
+        except json.JSONDecodeError as e:
+            pass
 
-        raise DirectorError("Failed to parse LLM response as JSON")
+        # Try to find JSON object
+        start = response.find("{")
+        end = response.rfind("}") + 1
+        if start >= 0 and end > start:
+            json_str = response[start:end]
+            try:
+                return json.loads(json_str)
+            except json.JSONDecodeError:
+                pass
+
+        # Try to extract JSON array
+        start = response.find("[")
+        end = response.rfind("]") + 1
+        if start >= 0 and end > start:
+            json_str = response[start:end]
+            try:
+                return json.loads(json_str)
+            except json.JSONDecodeError:
+                pass
+
+        # Try to clean up common JSON issues
+        # Remove trailing commas, fix quotes, etc.
+        response_clean = re.sub(r',\s*}', '}', response)
+        response_clean = re.sub(r',\s*]', ']', response_clean)
+        response_clean = response_clean.replace("'", '"')
+
+        try:
+            return json.loads(response_clean)
+        except json.JSONDecodeError:
+            pass
+
+        # If all parsing fails, raise error with diagnostic info
+        raise DirectorError(
+            f"Failed to parse LLM response as JSON. "
+            f"Response preview: {response[:200]}..."
+        )
 
 
 class DirectorError(Exception):

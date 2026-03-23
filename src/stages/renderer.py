@@ -283,7 +283,8 @@ class VideoRenderer:
         for scene_data in scene_data_list:
             try:
                 # Create a TextClip with font that supports Chinese
-                # Don't set size - let it auto-size based on text content
+                # Use 'caption' method for automatic text wrapping
+                # Set size to limit width and enable multi-line text
                 txt_clip = TextClip(
                     text=scene_data.narration,
                     font='/System/Library/Fonts/STHeiti Medium.ttc',
@@ -291,7 +292,8 @@ class VideoRenderer:
                     color='white',
                     stroke_color='black',
                     stroke_width=2,
-                    method='label',
+                    method='caption',
+                    size=(int(width * 0.8), None),  # Limit to 80% of video width, auto height
                     text_align='center',
                 )
 

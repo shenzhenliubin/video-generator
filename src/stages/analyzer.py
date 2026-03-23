@@ -49,7 +49,8 @@ Sentiment should be one word: positive, negative, neutral, inspirational, warnin
         """
         if provider is None:
             settings = get_settings()
-            self.provider = ProviderFactory.create_llm(settings.default_llm_provider)
+            config = settings.get_llm_config(settings.default_llm_provider)
+            self.provider = ProviderFactory.create_llm(settings.default_llm_provider, **config)
         else:
             self.provider = provider
 

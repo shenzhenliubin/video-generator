@@ -10,13 +10,18 @@ Features:
 - Automatic file storage and path management
 """
 
+import asyncio
 from pathlib import Path
+
+from rich.console import Console
 
 from src.api.base import ImageProvider
 from src.api.factory import ProviderFactory
 from src.config.settings import get_settings
 from src.core.models import GeneratedImage, Storyboard, StyleTemplate
 from src.storage.file_store import FileStore
+
+console = Console()
 
 
 class VideoArtist:
@@ -57,7 +62,8 @@ Guidelines:
         """
         if provider is None:
             settings = get_settings()
-            self.provider = ProviderFactory.create_image(settings.default_image_provider)
+            config = settings.get_image_config(settings.default_image_provider)
+            self.provider = ProviderFactory.create_image(settings.default_image_provider, **config)
         else:
             self.provider = provider
 
@@ -108,12 +114,28 @@ Guidelines:
                 if template and template.image_style_prompt:
                     style = template.image_style_prompt
 
-                # Generate the image
-                image_data = await self.provider.generate_image(
-                    prompt=prompt,
-                    style=style,
-                    aspect_ratio=aspect_ratio,
-                )
+                # Generate the image with retry logic for rate limiting
+                max_retries = 5
+                base_delay = 5  # seconds - increased for stricter rate limits
+
+                for attempt in range(max_retries):
+                    try:
+                        image_data = await self.provider.generate_image(
+                            prompt=prompt,
+                            style=style,
+                            aspect_ratio=aspect_ratio,
+                        )
+                        break  # Success, exit retry loop
+                    except Exception as e:
+                        error_str = str(e)
+                        is_rate_limit = '429' in error_str or '50604' in error_str or 'rate limit' in error_str.lower()
+
+                        if is_rate_limit and attempt < max_retries - 1:
+                            delay = base_delay * (2 ** attempt)  # Exponential backoff
+                            console.print(f"[yellow]Rate limited, waiting {delay}s before retry...[/yellow]")
+                            await asyncio.sleep(delay)
+                        else:
+                            raise  # Re-raise on last attempt or non-rate-limit errors
 
                 # Save the image
                 image_path = self.file_store.save_image(video_id, scene.scene_number, image_data)

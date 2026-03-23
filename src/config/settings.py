@@ -61,6 +61,11 @@ class Settings(BaseSettings):
     replicate_api_token: str = ""
 
     # =========================================================================
+    # SiliconFlow (硅基流动)
+    # =========================================================================
+    siliconflow_api_key: str = ""
+
+    # =========================================================================
     # Database
     # =========================================================================
     database_url: str = "sqlite:///./video_generator.db"
@@ -89,6 +94,12 @@ class Settings(BaseSettings):
     # =========================================================================
     max_concurrent_videos: int = 3
     checkpoint_interval: int = 60
+
+    # =========================================================================
+    # Web API
+    # =========================================================================
+    api_port: int = 8888
+    api_host: str = "0.0.0.0"
 
     # =========================================================================
     # Fallback providers
@@ -121,6 +132,9 @@ class Settings(BaseSettings):
                 "api_key": self.anthropic_api_key,
                 "model": self.anthropic_model,
             },
+            "siliconflow": {
+                "api_key": self.siliconflow_api_key,
+            },
         }
         return configs.get(provider, {})
 
@@ -134,6 +148,9 @@ class Settings(BaseSettings):
             "stability": {
                 "api_token": self.replicate_api_token,
             },
+            "siliconflow": {
+                "api_key": self.siliconflow_api_key,
+            },
         }
         return configs.get(provider, {})
 
@@ -145,6 +162,9 @@ class Settings(BaseSettings):
                 "default_voice": self.elevenlabs_default_voice,
             },
             "local": {},  # No config needed
+            "siliconflow": {
+                "api_key": self.siliconflow_api_key,
+            },
         }
         return configs.get(provider, {})
 

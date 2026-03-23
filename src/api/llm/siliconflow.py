@@ -37,7 +37,7 @@ def _create_httpx_client() -> httpx.AsyncClient:
     try:
         # Create client without proxy
         return httpx.AsyncClient(
-            timeout=httpx.Timeout(60.0, connect=10.0),
+            timeout=httpx.Timeout(120.0, connect=30.0),  # Increased timeout for LLM generation
             limits=httpx.Limits(max_keepalive_connections=5, max_connections=10),
         )
     finally:

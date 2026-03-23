@@ -137,6 +137,15 @@ class VideoPipeline:
         console.print(f"[cyan]Processing video:[/cyan] {video_id}")
 
         # Determine starting stage
+        # Declare pipeline variables at function scope
+        transcript = None
+        parsed_content = None
+        analysis = None
+        script = None
+        storyboard = None
+        images = None
+        audio = None
+
         if start_from:
             current_stage = start_from
         elif resume:
@@ -145,22 +154,34 @@ class VideoPipeline:
                 current_stage = self._get_next_stage(last_stage)
                 console.print(f"[yellow]Resuming from:[/yellow] {last_stage.value}")
                 # Load checkpoint data to populate variables
-                checkpoint = self.checkpoint_store.load(video_id, last_stage)
-                if checkpoint and checkpoint.data:
-                    if "transcript" in checkpoint.data:
-                        transcript = checkpoint.data["transcript"]
-                    if "parsed" in checkpoint.data:
-                        parsed_content = checkpoint.data["parsed"]
-                    if "analysis" in checkpoint.data:
-                        analysis = checkpoint.data["analysis"]
-                    if "script" in checkpoint.data:
-                        script = checkpoint.data["script"]
-                    if "storyboard" in checkpoint.data:
-                        storyboard = checkpoint.data["storyboard"]
-                    if "images" in checkpoint.data:
-                        images = checkpoint.data["images"]
-                    if "audio" in checkpoint.data:
-                        audio = checkpoint.data["audio"]
+                # Load from ALL checkpoints up to the last stage, not just the last one
+                stages_to_load = [
+                    PipelineStage.FETCHER,
+                    PipelineStage.PARSER,
+                    PipelineStage.ANALYZER,
+                    PipelineStage.WRITER,
+                    PipelineStage.DIRECTOR,
+                    PipelineStage.ARTIST,
+                    PipelineStage.VOICE,
+                ]
+
+                for stage in stages_to_load:
+                    checkpoint = self.checkpoint_store.load(video_id, stage)
+                    if checkpoint and checkpoint.data:
+                        if "transcript" in checkpoint.data:
+                            transcript = Transcript(**checkpoint.data["transcript"])
+                        if "parsed" in checkpoint.data:
+                            parsed_content = ParsedContent(**checkpoint.data["parsed"])
+                        if "analysis" in checkpoint.data:
+                            analysis = ContentAnalysis(**checkpoint.data["analysis"])
+                        if "script" in checkpoint.data:
+                            script = RewrittenScript(**checkpoint.data["script"])
+                        if "storyboard" in checkpoint.data:
+                            storyboard = Storyboard(**checkpoint.data["storyboard"])
+                        if "images" in checkpoint.data:
+                            images = [GeneratedImage(**img) for img in checkpoint.data["images"]]
+                        if "audio" in checkpoint.data:
+                            audio = [GeneratedAudio(**aud) for aud in checkpoint.data["audio"]]
             else:
                 current_stage = PipelineStage.WATCHER
         else:
@@ -176,12 +197,6 @@ class VideoPipeline:
 
         # Execute pipeline stages
         results = {}
-        parsed_content = None
-        analysis = None
-        script = None
-        storyboard = None
-        images = None
-        audio = None
 
         with Progress(
             TextColumn("[progress.description]{task.description}"),
@@ -253,6 +268,8 @@ class VideoPipeline:
             # Stage 9: Renderer
             if current_stage == PipelineStage.RENDERER:
                 progress.update(task, description="[cyan]Stage 9: Renderer")
+                # Debug output
+                console.print(f"[dim]  DEBUG: storyboard={storyboard}, images={len(images) if images else 0}, audio={len(audio) if audio else 0}[/dim]")
                 video_output = await self._run_renderer(storyboard, images, audio, progress, task)
                 await self._save_checkpoint(video_id, PipelineStage.RENDERER, {"video": video_output})
 
@@ -283,6 +300,8 @@ class VideoPipeline:
                 description="Direct video processing",
                 published_at=datetime.now(),
                 duration=0,
+                thumbnail_url=f"https://img.youtube.com/vi/{video_id}/maxresdefault.jpg",
+                url=f"https://www.youtube.com/watch?v={video_id}",
             )
 
             progress.update(task, advance=1)
@@ -344,7 +363,7 @@ class VideoPipeline:
             analysis = await analyzer.analyze(parsed_content)
 
             progress.update(task, advance=1)
-            console.print(f"[dim]  → Extracted {len(analysis.key_points)} key points[/dim]")
+            console.print(f"[dim]  → Extracted {len(analysis.main_points)} key points[/dim]")
             return analysis
 
         except Exception as e:
@@ -361,7 +380,7 @@ class VideoPipeline:
         """Run Writer stage."""
         try:
             writer = ContentWriter()
-            script = await writer.rewrite(video_id, analysis, self.template)
+            script = await writer.rewrite(analysis, self.template)
 
             progress.update(task, advance=1)
             console.print(f"[dim]  → Content rewritten in {self.template.category.value if self.template else 'default'} style[/dim]")
@@ -381,7 +400,7 @@ class VideoPipeline:
         """Run Director stage."""
         try:
             director = VideoDirector()
-            storyboard = await director.create_storyboard(video_id, script, self.template)
+            storyboard = await director.create_storyboard(script, self.template)
 
             progress.update(task, advance=1)
             console.print(f"[dim]  → Created storyboard with {len(storyboard.scenes)} scenes[/dim]")
@@ -444,6 +463,7 @@ class VideoPipeline:
                 storyboard.script_id,
                 images,
                 audio,
+                storyboard=storyboard,
             )
 
             progress.update(task, advance=1)

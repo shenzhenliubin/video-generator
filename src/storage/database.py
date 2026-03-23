@@ -7,7 +7,7 @@ Database models for storing video metadata, processing state, and channel inform
 from datetime import datetime, timezone
 from typing import Optional
 
-from sqlalchemy import DateTime, Integer, String, Text, Boolean
+from sqlalchemy import DateTime, Integer, String, Text, Boolean, Float
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, Session, sessionmaker
 from sqlalchemy import create_engine
 
@@ -154,6 +154,121 @@ class ProcessingStage(Base):
             f"<ProcessingStage(video_id={self.video_id}, "
             f"stage={self.stage_name}, status={self.status})>"
         )
+
+
+# =============================================================================
+# Web API Models - Phase 2
+# =============================================================================
+
+class MonitoredChannel(Base):
+    """
+    YouTube channels configured for monitoring via Web API.
+
+    Extends the base Channel model with template association and
+    more granular control over monitoring behavior.
+    """
+    __tablename__ = "monitored_channels"
+
+    # Use string ID for easier API handling
+    id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    channel_id: Mapped[str] = mapped_column(String(50), unique=True, index=True)
+    channel_name: Mapped[str] = mapped_column(String(255))
+
+    # Monitoring configuration
+    check_interval_minutes: Mapped[int] = mapped_column(
+        Integer, default=60, index=True
+    )
+    template_id: Mapped[str] = mapped_column(String(100), index=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+
+    # Tracking state
+    last_checked_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    last_video_id: Mapped[Optional[str]] = mapped_column(
+        String(20), nullable=True
+    )
+
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc)
+    )
+
+    def __repr__(self) -> str:
+        return f"<MonitoredChannel(id={self.id}, channel_id={self.channel_id}, enabled={self.enabled})>"
+
+
+class VideoGenerationTask(Base):
+    """
+    Video generation tasks created via Web API.
+
+    Tracks both manual and automatic video generation with detailed
+    progress tracking and status management.
+    """
+    __tablename__ = "video_tasks"
+
+    # Use string ID for easier API handling
+    id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    video_id: Mapped[str] = mapped_column(String(20), index=True)
+
+    # Optional: associated monitored channel
+    channel_id: Mapped[Optional[str]] = mapped_column(
+        String(50), nullable=True, index=True
+    )
+
+    # Template to use
+    template_id: Mapped[str] = mapped_column(String(100), index=True)
+
+    # Task status
+    status: Mapped[str] = mapped_column(
+        String(50), default="pending", index=True
+    )  # pending, processing, completed, failed
+    progress: Mapped[int] = mapped_column(Integer, default=0)  # 0-100
+    current_stage: Mapped[Optional[str]] = mapped_column(
+        String(100), nullable=True
+    )
+
+    # Output
+    output_path: Mapped[Optional[str]] = mapped_column(
+        String(1000), nullable=True
+    )
+
+    # Error handling
+    error_message: Mapped[Optional[str]] = mapped_column(
+        Text, nullable=True
+    )
+
+    # Video metadata (cached for display)
+    video_title: Mapped[Optional[str]] = mapped_column(
+        String(500), nullable=True
+    )
+    video_thumbnail: Mapped[Optional[str]] = mapped_column(
+        String(500), nullable=True
+    )
+    video_url: Mapped[Optional[str]] = mapped_column(
+        String(500), nullable=True
+    )
+
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        index=True
+    )
+    started_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    completed_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    def __repr__(self) -> str:
+        return f"<VideoGenerationTask(id={self.id}, video_id={self.video_id}, status={self.status})>"
 
 
 class Database:

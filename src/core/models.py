@@ -192,6 +192,26 @@ class GeneratedAudio(BaseModel):
     duration: float  # seconds
 
 
+class SceneData(BaseModel):
+    """
+    Complete scene data for rendering.
+
+    Combines storyboard scene, generated image, and generated audio
+    into a single data structure for video rendering.
+    """
+
+    scene_number: int
+    narration: str  # Subtitle text
+    visual_description: str  # From storyboard
+    duration: float  # Audio duration (actual, not estimated)
+    camera_movement: str = "static"
+    mood: str = "neutral"
+    start_time: float = 0.0  # Calculated when processing multiple scenes
+    image_path: str = ""  # Path to generated image
+    audio_path: str = ""  # Path to generated audio
+    image_prompt: str = ""  # Prompt used for image generation
+
+
 # =============================================================================
 # Output Models
 # =============================================================================

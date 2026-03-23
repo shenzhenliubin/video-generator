@@ -1,24 +1,19 @@
-id: dramatic
-name: Dramatic
+background_music: null
 category: dramatic
 description: High-impact, cinematic storytelling with emotional depth
-
-# Provider 配置
-llm_provider: siliconflow
-llm_model: deepseek-ai/DeepSeek-V3
+id: dramatic
 image_provider: siliconflow
-image_model: black-forest-labs/FLUX.1-dev
-tts_provider: siliconflow
-tts_model: FunAudioLLM/CosyVoice2-0.5B
-
-# 样式参数
-scene_duration: 5  # 每场景秒数
 image_style_prompt: cinematic, dramatic lighting, high contrast, movie quality
-voice_id: charles  # 沉稳男声
-
-# LLM 参数
-system_prompt: |
-  You are a dramatic storyteller. Create engaging narratives with emotional impact.
-  Your style should be cinematic and compelling.
-temperature: 0.8
+llm_provider: siliconflow
 max_tokens: 1000
+name: 戏剧性
+scene_duration: 5
+system_prompt: 'You are a dramatic storyteller. Create engaging narratives with emotional
+  impact.
+
+  Your style should be cinematic and compelling.
+
+  '
+temperature: 0.8
+tts_provider: siliconflow
+voice_id: charles

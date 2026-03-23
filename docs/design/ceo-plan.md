@@ -42,7 +42,7 @@ Repo: video-generator
 | 1 | 项目管理系统 | M | 推迟 | 系列内容是平台化需求 |
 | 2 | 风格模板系统 | S | **接受** | 今天更易用，为模板市场铺路 |
 | 3 | 内容资产库 | M | 推迟 | 平台化后期的自然延伸 |
-| 4 | Web UI 基础 | L | 推迟 | CLI 今天够用，不过早优化 |
+| 4 | Web UI 基础 | L | **接受 (Phase 2)** | 核心 Pipeline 完成，进入平台化 |
 | 5 | 批处理模式 | M | 推迟 | 个人工具阶段不需要 |
 | 6 | 实时预览 | S | 推迟 | 核心流程验证后再加 |
 | 7 | 成本控制 | S | 推迟 | 可以快速迭代添加 |
@@ -69,10 +69,21 @@ Repo: video-generator
 
 - 项目管理系统 - 系列内容组织和人物一致性
 - 内容资产库 - 复用和管理生成的图片/语音
-- Web UI 基础 - API 层解耦
 - 批处理模式 - 多视频处理
 - 实时预览 - 快速方向确认
 - 成本控制 - 预算上限和降级策略
+
+## Phase 2: Web UI Platform (新增)
+
+核心 Pipeline 完成后，进入平台化阶段：
+
+**包含：**
+- FastAPI 后端 API（风格管理、频道监控、视频生成）
+- 数据库扩展（MonitoredChannel, VideoGenerationTask）
+- APScheduler 后台定时任务
+- React 前端界面
+
+详见 `product-design.md` Phase 2 章节
 
 ## Implementation Approach
 

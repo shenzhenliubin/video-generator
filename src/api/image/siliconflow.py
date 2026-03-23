@@ -59,7 +59,7 @@ class SiliconFlowImage(ImageProvider):
     """
 
     DEFAULT_BASE_URL = "https://api.siliconflow.cn/v1"
-    DEFAULT_MODEL = "black-forest-labs/FLUX.1-schnell"
+    DEFAULT_MODEL = "Kwai-Kolors/Kolors"
 
     # Aspect ratio to size mapping
     ASPECT_RATIO_SIZES = {
@@ -73,9 +73,9 @@ class SiliconFlowImage(ImageProvider):
 
     # Supported models
     POPULAR_MODELS = {
+        "kolors": "Kwai-Kolors/Kolors",
         "flux-dev": "black-forest-labs/FLUX.1-dev",
         "flux-schnell": "black-forest-labs/FLUX.1-schnell",
-        "kolors": "Kwai-Kolors/Kolors",
     }
 
     # Supported styles
@@ -222,8 +222,10 @@ class SiliconFlowImage(ImageProvider):
         if image_url is None:
             raise ValueError("No image URL returned from API")
 
-        # Download image data
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        # Download image data (disable proxy to avoid SOCKS errors)
+        import httpx._transports.default as httpx_default
+        transport = httpx_default.AsyncHTTPTransport(proxy=None)
+        async with httpx.AsyncClient(timeout=30.0, transport=transport) as client:
             image_response = await client.get(image_url)
             image_response.raise_for_status()
             return image_response.content

@@ -12,6 +12,8 @@ Features:
 
 from pathlib import Path
 
+from moviepy import AudioFileClip
+
 from src.api.base import TTSProvider
 from src.api.factory import ProviderFactory
 from src.config.settings import get_settings
@@ -44,7 +46,8 @@ class VoiceActor:
         """
         if provider is None:
             settings = get_settings()
-            self.provider = ProviderFactory.create_tts(settings.default_tts_provider)
+            config = settings.get_tts_config(settings.default_tts_provider)
+            self.provider = ProviderFactory.create_tts(settings.default_tts_provider, **config)
         else:
             self.provider = provider
 
@@ -100,10 +103,9 @@ class VoiceActor:
                 # Save the audio
                 audio_path = self.file_store.save_audio(video_id, scene.scene_number, audio_data)
 
-                # Calculate approximate duration (based on text length and speed)
-                # Rough estimate: average reading speed is 150 words per minute
-                word_count = len(text.split())
-                duration = (word_count / 150) * 60 / speed
+                # Get actual audio duration from the file
+                audio_clip = AudioFileClip(audio_path)
+                duration = audio_clip.duration
 
                 generated_audio.append(
                     GeneratedAudio(

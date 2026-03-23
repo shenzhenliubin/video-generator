@@ -48,7 +48,7 @@ class SubtitleParser:
     PUNCTUATION_SPACE_PATTERN = re.compile(r"\s+([.,!?;:])")
     BRACKET_PATTERN = re.compile(r"\[[^\]]*\]")
 
-    def parse(self, transcript: Transcript) -> ParsedContent:
+    async def parse(self, transcript: Transcript) -> ParsedContent:
         """
         Parse transcript into clean, structured content.
 
@@ -283,7 +283,7 @@ class SubtitleParser:
 
 
 # Convenience function for backward compatibility
-def parse_subtitles(transcript: Transcript) -> ParsedContent:
+async def parse_subtitles(transcript: Transcript) -> ParsedContent:
     """
     Parse subtitle transcript into clean content.
 
@@ -297,7 +297,7 @@ def parse_subtitles(transcript: Transcript) -> ParsedContent:
         ParsedContent with cleaned and structured text
     """
     parser = SubtitleParser()
-    return parser.parse(transcript)
+    return await parser.parse(transcript)
 
 
 # Batch parsing for multiple transcripts

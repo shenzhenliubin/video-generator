@@ -38,6 +38,27 @@ class SubtitleFetcher:
         """Initialize subtitle fetcher."""
         self._api = YouTubeTranscriptApi()
 
+    async def fetch(
+        self,
+        video_id: str,
+        languages: list[str] | None = None,
+    ) -> Transcript:
+        """
+        Fetch subtitles for a YouTube video (alias for fetch_subtitles).
+
+        Args:
+            video_id: YouTube video ID (11 characters, e.g., "dQw4w9WgXcQ")
+            languages: Preferred language codes (e.g., ['en', 'es']).
+                     If None, fetches available subtitles.
+
+        Returns:
+            Transcript with segmented text and metadata
+
+        Raises:
+            SubtitleFetchError: If subtitles are not available or fetching fails
+        """
+        return await self.fetch_subtitles(video_id, languages)
+
     async def fetch_subtitles(
         self,
         video_id: str,
@@ -75,9 +96,9 @@ class SubtitleFetcher:
                 raw_text=self._extract_raw_text(transcript_data),
                 segments=[
                     TranscriptSegment(
-                        text=item["text"],
-                        start=item["start"],
-                        duration=item["duration"],
+                        text=item.text,
+                        start=item.start,
+                        duration=item.duration,
                     )
                     for item in transcript_data
                 ],
@@ -110,22 +131,22 @@ class SubtitleFetcher:
             List of transcript segments
         """
         if languages:
-            return self._api.get_transcript(video_id, languages=languages)
+            return self._api.fetch(video_id, languages=languages)
         else:
-            return self._api.get_transcript(video_id)
+            return self._api.fetch(video_id)
 
     @staticmethod
-    def _extract_raw_text(transcript_data: list[dict]) -> str:
+    def _extract_raw_text(transcript_data: list) -> str:
         """
         Extract full text from transcript segments.
 
         Args:
-            transcript_data: List of transcript segments
+            transcript_data: List of FetchedTranscriptSnippet objects
 
         Returns:
             Concatenated text
         """
-        return " ".join(item["text"] for item in transcript_data)
+        return " ".join(item.text for item in transcript_data)
 
     @staticmethod
     def _detect_language(transcript_data: list[dict]) -> str:

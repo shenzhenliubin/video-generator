@@ -217,16 +217,15 @@ class SiliconFlowTTS(TTSProvider):
         if extra_body:
             request_params["extra_body"] = extra_body
 
-        # Generate speech
-        response = await self._client.audio.speech.with_streaming_response.create(
+        # Generate speech - use non-streaming API for simplicity
+        response = await self._client.audio.speech.create(
             **request_params
         )
 
-        # Read audio data
-        audio_data = b""
-        async with response as stream:
-            async for chunk in stream.aiter_bytes():
-                audio_data += chunk
+        # Get audio data from response
+        audio_data = response.content
+        if not audio_data:
+            raise ValueError("No audio data returned from API")
 
         # Get MIME type
         mime_type = self.FORMAT_MIME_TYPES.get(response_format, "audio/mpeg")

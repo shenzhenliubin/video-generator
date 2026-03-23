@@ -27,53 +27,65 @@ class ContentWriter:
 
     # Base style prompts for different categories
     STYLE_PROMPTS = {
-        "dramatic": """You are a dramatic storyteller. Rewrite the content with:
-- Emotional intensity and suspense
-- Vivid imagery and metaphors
-- Dramatic pacing and tension
-- Powerful, memorable language
+        "dramatic": """你是一位戏剧性故事讲述者。请将内容改写为：
+- 情感强烈和悬念
+- 生动的意象和隐喻
+- 戏剧性的节奏和张力
+- 强有力的、令人难忘的语言
 
-Create something that feels like a movie trailer or dramatic narration.""",
+请创作出像电影预告片或戏剧性旁白那样的内容。
 
-        "humorous": """You are a comedy writer. Rewrite the content with:
-- Witty humor and clever wordplay
-- Light-hearted, entertaining tone
-- Relatable examples and anecdotes
-- Engaging comedic timing
+重要：请用中文输出改写后的剧本。""",
 
-Make it funny but still convey the core message.""",
+        "humorous": """你是一位喜剧作家。请将内容改写为：
+- 诙谐的幽默和巧妙的文字游戏
+- 轻松愉快的娱乐语调
+- 可引起共鸣的例子和轶事
+- 引人入胜的喜剧节奏
 
-        "educational": """You are an expert educator. Rewrite the content with:
-- Clear, accessible explanations
-- Structured learning flow
-- Practical examples and analogies
-- Actionable takeaways
+让它既有趣又能传达核心信息。
 
-Make complex topics easy to understand.""",
+重要：请用中文输出改写后的剧本。""",
 
-        "cinematic": """You are a screenwriter. Rewrite the content with:
-- Visual, scene-setting language
-- Epic, cinematic scope
-- Emotional resonance
-- Film-worthy dialogue and narration
+        "educational": """你是一位专业的教育者。请将内容改写为：
+- 清晰易懂的解释
+- 结构化的学习流程
+- 实用的例子和类比
+- 可执行的建议
 
-Write it like it could be a documentary or feature film.""",
+让复杂的主题变得容易理解。
 
-        "documentary": """You are a documentary narrator. Rewrite the content with:
-- Informative, factual tone
-- Engaging storytelling
-- Clear narrative arc
-- Professional broadcast style
+重要：请用中文输出改写后的剧本。""",
 
-Make it sound like a high-quality documentary narration.""",
+        "cinematic": """你是一位编剧。请将内容改写为：
+- 视觉化的、场景设置的语言
+- 史诗般的电影规模
+- 情感共鸣
+- 值得拍摄的电影对话和旁白
 
-        "news": """You are a news anchor. Rewrite the content with:
-- Concise, punchy delivery
-- Journalistic precision
-- Urgency and relevance
-- Clear headline and lead
+写得像可以成为纪录片或故事片一样。
 
-Write it like a breaking news segment.""",
+重要：请用中文输出改写后的剧本。""",
+
+        "documentary": """你是一位纪录片旁白。请将内容改写为：
+- 信息丰富、事实性的语调
+- 引人入胜的叙事
+- 清晰的叙事弧线
+- 专业的广播风格
+
+让它听起来像高质量的纪录片旁白。
+
+重要：请用中文输出改写后的剧本。""",
+
+        "news": """你是一位新闻主播。请将内容改写为：
+- 简洁有力的表达
+- 新闻报道的精确性
+- 紧迫感和相关性
+- 清晰的标题和导语
+
+写得像突发新闻报道一样。
+
+重要：请用中文输出改写后的剧本。""",
     }
 
     def __init__(self, provider: LLMProvider | None = None):
@@ -85,7 +97,8 @@ Write it like a breaking news segment.""",
         """
         if provider is None:
             settings = get_settings()
-            self.provider = ProviderFactory.create_llm(settings.default_llm_provider)
+            config = settings.get_llm_config(settings.default_llm_provider)
+            self.provider = ProviderFactory.create_llm(settings.default_llm_provider, **config)
         else:
             self.provider = provider
 
