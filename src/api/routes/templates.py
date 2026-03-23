@@ -115,6 +115,15 @@ async def create_template(template: TemplateCreate) -> TemplateResponse:
     Creates a new YAML file for the template in the templates directory.
     """
     try:
+        manager = TemplateManager()
+
+        # Check if template ID already exists
+        if manager.exists(template.id):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Template with ID '{template.id}' already exists. Please use a different ID or update the existing template.",
+            )
+
         # Validate category
         try:
             category = TemplateCategory(template.category)

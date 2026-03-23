@@ -38,27 +38,48 @@ export default function ChannelsPage() {
   };
 
   const handleCreate = async () => {
+    // Validate required fields
+    if (!formData.channel_id.trim()) {
+      alert("请输入YouTube频道ID");
+      return;
+    }
+    if (!formData.channel_name.trim()) {
+      alert("请输入频道名称");
+      return;
+    }
+
     try {
       await apiClient.createChannel(formData);
       await loadChannels();
       setShowCreate(false);
       setEditingChannel(null);
       resetForm();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to create channel:", error);
+      const errorMsg = error.response?.data?.detail || error.message || "创建失败";
+      alert(errorMsg);
     }
   };
 
   const handleUpdate = async () => {
     if (!editingChannel) return;
+
+    // Validate required fields
+    if (!formData.channel_name.trim()) {
+      alert("请输入频道名称");
+      return;
+    }
+
     try {
       await apiClient.updateChannel(editingChannel.id, formData);
       await loadChannels();
       setShowCreate(false);
       setEditingChannel(null);
       resetForm();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to update channel:", error);
+      const errorMsg = error.response?.data?.detail || error.message || "更新失败";
+      alert(errorMsg);
     }
   };
 
@@ -67,8 +88,10 @@ export default function ChannelsPage() {
     try {
       await apiClient.deleteChannel(id);
       await loadChannels();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to delete channel:", error);
+      const errorMsg = error.response?.data?.detail || error.message || "删除失败";
+      alert(errorMsg);
     }
   };
 
@@ -76,8 +99,10 @@ export default function ChannelsPage() {
     try {
       await apiClient.updateChannel(channel.id, { enabled: !channel.enabled });
       await loadChannels();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to toggle channel:", error);
+      const errorMsg = error.response?.data?.detail || error.message || "操作失败";
+      alert(errorMsg);
     }
   };
 

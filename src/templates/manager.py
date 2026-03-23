@@ -92,14 +92,26 @@ class TemplateManager:
             StyleTemplate instance
 
         Raises:
-            KeyError: If template not found
+            FileNotFoundError: If template not found
         """
         if template_id not in self._templates:
             available = ", ".join(self._templates.keys())
-            raise KeyError(
+            raise FileNotFoundError(
                 f"Template '{template_id}' not found. Available: {available}"
             )
         return self._templates[template_id]
+
+    def exists(self, template_id: str) -> bool:
+        """
+        Check if a template exists.
+
+        Args:
+            template_id: Unique template identifier
+
+        Returns:
+            True if template exists, False otherwise
+        """
+        return template_id in self._templates
 
     def save(self, template: StyleTemplate, file_path: str | None = None) -> None:
         """
@@ -154,3 +166,27 @@ class TemplateManager:
         """Reload all templates from disk."""
         self._templates.clear()
         self._load_all()
+
+    def delete(self, template_id: str) -> None:
+        """
+        Delete a template by ID.
+
+        Args:
+            template_id: Template identifier
+
+        Raises:
+            FileNotFoundError: If template not found
+            OSError: If file deletion fails
+        """
+        if template_id not in self._templates:
+            raise FileNotFoundError(
+                f"Template '{template_id}' not found"
+            )
+
+        # Delete the YAML file
+        file_path = self._templates_dir / f"{template_id}.yaml"
+        if file_path.exists():
+            file_path.unlink()
+
+        # Remove from cache
+        del self._templates[template_id]

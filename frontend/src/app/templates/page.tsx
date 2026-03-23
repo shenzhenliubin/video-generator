@@ -46,27 +46,55 @@ export default function TemplatesPage() {
   };
 
   const handleCreate = async () => {
+    // Client-side validation: check if ID already exists
+    const existingTemplate = templates.find(t => t.id === formData.id);
+    if (existingTemplate) {
+      alert(`模板ID "${formData.id}" 已存在，请使用不同的ID`);
+      return;
+    }
+
+    // Validate required fields
+    if (!formData.id.trim()) {
+      alert("请输入模板ID");
+      return;
+    }
+    if (!formData.name.trim()) {
+      alert("请输入模板名称");
+      return;
+    }
+
     try {
       await apiClient.createTemplate(formData);
       await loadTemplates();
       setShowCreate(false);
       setEditingTemplate(null);
       resetForm();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to create template:", error);
+      const errorMsg = error.response?.data?.detail || error.message || "创建失败";
+      alert(errorMsg);
     }
   };
 
   const handleUpdate = async () => {
     if (!editingTemplate) return;
+
+    // Validate required fields
+    if (!formData.name.trim()) {
+      alert("请输入模板名称");
+      return;
+    }
+
     try {
       await apiClient.updateTemplate(editingTemplate.id, formData);
       await loadTemplates();
       setShowCreate(false);
       setEditingTemplate(null);
       resetForm();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to update template:", error);
+      const errorMsg = error.response?.data?.detail || error.message || "更新失败";
+      alert(errorMsg);
     }
   };
 
@@ -75,8 +103,10 @@ export default function TemplatesPage() {
     try {
       await apiClient.deleteTemplate(id);
       await loadTemplates();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to delete template:", error);
+      const errorMsg = error.response?.data?.detail || error.message || "删除失败";
+      alert(errorMsg);
     }
   };
 
