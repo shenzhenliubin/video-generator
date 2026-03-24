@@ -192,6 +192,19 @@ class GeneratedAudio(BaseModel):
     duration: float  # seconds
 
 
+class SubtitleSentence(BaseModel):
+    """
+    A single sentence subtitle with timing information.
+
+    Used for sentence-by-subtitle display where each sentence appears
+    as it is spoken in the audio.
+    """
+
+    text: str  # The sentence text
+    start_time: float  # When this sentence appears (relative to scene start)
+    duration: float  # How long this sentence displays
+
+
 class SceneData(BaseModel):
     """
     Complete scene data for rendering.
@@ -201,7 +214,7 @@ class SceneData(BaseModel):
     """
 
     scene_number: int
-    narration: str  # Subtitle text
+    narration: str  # Full subtitle text (can be split into sentences)
     visual_description: str  # From storyboard
     duration: float  # Audio duration (actual, not estimated)
     camera_movement: str = "static"
@@ -210,6 +223,7 @@ class SceneData(BaseModel):
     image_path: str = ""  # Path to generated image
     audio_path: str = ""  # Path to generated audio
     image_prompt: str = ""  # Prompt used for image generation
+    subtitle_sentences: list[SubtitleSentence] = Field(default_factory=list)  # Optional: sentence-level breakdown
 
 
 # =============================================================================

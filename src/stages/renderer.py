@@ -10,9 +10,10 @@ Features:
 - Subtitle support with SceneData structure
 """
 
+import re
 from moviepy import CompositeVideoClip, VideoFileClip, AudioFileClip, TextClip, ImageClip, concatenate_videoclips, concatenate_audioclips
 
-from src.core.models import GeneratedAudio, GeneratedImage, VideoOutput, SceneData
+from src.core.models import GeneratedAudio, GeneratedImage, VideoOutput, SceneData, SubtitleSentence
 from src.storage.file_store import FileStore
 
 
@@ -113,6 +114,9 @@ class VideoRenderer:
                             mood = scene.mood
                             break
 
+                # Split narration into sentences for sentence-by-subtitle display
+                subtitle_sentences = self._split_narration_to_sentences(narration, audio_data.duration)
+
                 scene_data = SceneData(
                     scene_number=image_data.scene_number,
                     narration=narration,
@@ -124,6 +128,7 @@ class VideoRenderer:
                     image_path=image_data.image_path,
                     audio_path=audio_data.audio_path,
                     image_prompt=image_data.prompt_used,
+                    subtitle_sentences=subtitle_sentences,
                 )
                 scene_data_list.append(scene_data)
                 current_time += audio_data.duration
@@ -199,6 +204,81 @@ class VideoRenderer:
                 f"Failed to render video for {storyboard_id}: {e}"
             ) from e
 
+    def _split_narration_to_sentences(
+        self,
+        narration: str,
+        total_duration: float,
+    ) -> list[SubtitleSentence]:
+        """
+        Split narration text into sentences with proportional timing.
+
+        Uses Chinese punctuation (。，！？；：) and English punctuation (.!?;:) to split sentences.
+        Each sentence's duration is proportional to its character count.
+
+        Args:
+            narration: The full narration text to split
+            total_duration: Total audio duration for this narration
+
+        Returns:
+            List of SubtitleSentence with text, start_time, and duration
+        """
+        # Split by Chinese and English sentence-ending punctuation
+        # Pattern matches: 。！？；： or .!?;: followed by optional space
+        sentences = re.split(r'([。！？；：\.!\?\;:\：]+)\s*', narration)
+
+        # Reconstruct sentences with their punctuation
+        reconstructed = []
+        i = 0
+        while i < len(sentences):
+            if i + 1 < len(sentences) and re.match(r'^[。！？；：\.!\?\;:\：]+$', sentences[i + 1]):
+                # This is punctuation, attach to previous text
+                text = sentences[i] + sentences[i + 1]
+                reconstructed.append(text)
+                i += 2
+            elif sentences[i]:  # Non-empty text
+                reconstructed.append(sentences[i])
+                i += 1
+            else:
+                i += 1
+
+        if not reconstructed:
+            # Fallback: return as single sentence if split failed
+            return [SubtitleSentence(text=narration, start_time=0.0, duration=total_duration)]
+
+        # Calculate character counts for proportional timing
+        char_counts = [len(s) for s in reconstructed]
+        total_chars = sum(char_counts)
+
+        # Allocate timing proportionally
+        subtitle_sentences = []
+        current_time = 0.0
+
+        for i, (text, char_count) in enumerate(zip(reconstructed, char_counts)):
+            # Proportional duration based on character count
+            # Minimum 0.5 seconds per sentence for readability
+            if total_chars > 0:
+                sentence_duration = (char_count / total_chars) * total_duration
+            else:
+                sentence_duration = total_duration / len(reconstructed)
+
+            # Ensure minimum duration for readability (0.5s) and max (remaining time)
+            sentence_duration = max(0.5, min(sentence_duration, total_duration - current_time))
+
+            # Last sentence gets remaining time
+            if i == len(reconstructed) - 1:
+                sentence_duration = total_duration - current_time
+
+            subtitle_sentences.append(
+                SubtitleSentence(
+                    text=text.strip(),
+                    start_time=current_time,
+                    duration=sentence_duration,
+                )
+            )
+            current_time += sentence_duration
+
+        return subtitle_sentences
+
     async def _create_image_clip(
         self,
         image_path: str,
@@ -265,9 +345,9 @@ class VideoRenderer:
         height: int,
     ) -> VideoFileClip:
         """
-        Add subtitles to video clip using SceneData.
+        Add subtitles to video clip using SceneData with sentence-by-sentence display.
 
-        For MoviePy 2.x, we create all TextClips first, then composite them.
+        Each sentence appears as it is spoken, rather than showing all text at once.
 
         Args:
             video_clip: Video clip without subtitles
@@ -281,35 +361,51 @@ class VideoRenderer:
         subtitle_clips = []
 
         for scene_data in scene_data_list:
-            try:
-                # Create a TextClip with font that supports Chinese
-                # Use 'caption' method for automatic text wrapping
-                # Set size to limit width and enable multi-line text
-                txt_clip = TextClip(
+            # Use sentence-level subtitles if available, otherwise fall back to full narration
+            sentences = scene_data.subtitle_sentences
+
+            # If no sentence breakdown, create a single sentence from full narration
+            if not sentences:
+                from src.core.models import SubtitleSentence
+                sentences = [SubtitleSentence(
                     text=scene_data.narration,
-                    font='/System/Library/Fonts/STHeiti Medium.ttc',
-                    font_size=48,
-                    color='white',
-                    stroke_color='black',
-                    stroke_width=2,
-                    method='caption',
-                    size=(int(width * 0.8), None),  # Limit to 80% of video width, auto height
-                    text_align='center',
-                )
+                    start_time=0.0,
+                    duration=scene_data.duration,
+                )]
 
-                # Set timing - when the subtitle appears and for how long
-                txt_clip = txt_clip.with_start(scene_data.start_time).with_duration(scene_data.duration)
+            for sentence in sentences:
+                try:
+                    # Calculate absolute start time in the video
+                    absolute_start = scene_data.start_time + sentence.start_time
 
-                # Set position - bottom center of video
-                txt_clip = txt_clip.with_position(('center', height * 0.85))
+                    # Create a TextClip with font that supports Chinese
+                    # Use 'caption' method for automatic text wrapping
+                    # Set size to limit width and enable multi-line text
+                    txt_clip = TextClip(
+                        text=sentence.text,
+                        font='/System/Library/Fonts/STHeiti Medium.ttc',
+                        font_size=48,
+                        color='white',
+                        stroke_color='black',
+                        stroke_width=2,
+                        method='caption',
+                        size=(int(width * 0.8), None),  # Limit to 80% of video width, auto height
+                        text_align='center',
+                    )
 
-                subtitle_clips.append(txt_clip)
-                print(f"  Created subtitle for scene {scene_data.scene_number}: {scene_data.narration[:30]}...")
-            except Exception as e:
-                print(f"  Error creating subtitle for scene {scene_data.scene_number}: {e}")
-                import traceback
-                traceback.print_exc()
-                continue
+                    # Set timing - when the subtitle appears and for how long
+                    txt_clip = txt_clip.with_start(absolute_start).with_duration(sentence.duration)
+
+                    # Set position - bottom center of video
+                    txt_clip = txt_clip.with_position(('center', height * 0.85))
+
+                    subtitle_clips.append(txt_clip)
+                    print(f"  Created subtitle for scene {scene_data.scene_number} +{sentence.start_time:.1f}s: {sentence.text[:30]}...")
+                except Exception as e:
+                    print(f"  Error creating subtitle for scene {scene_data.scene_number} sentence '{sentence.text[:20]}...': {e}")
+                    import traceback
+                    traceback.print_exc()
+                    continue
 
         if subtitle_clips:
             print(f"  Compositing {len(subtitle_clips)} subtitle clips with video...")
@@ -328,7 +424,7 @@ class VideoRenderer:
             else:
                 print(f"  WARNING: No audio found in original video clip")
 
-            print(f"  ✓ Added {len(subtitle_clips)} subtitle clips")
+            print(f"  ✓ Added {len(subtitle_clips)} subtitle sentence clips")
             return final_video
         else:
             print(f"  WARNING: No subtitle clips created")
